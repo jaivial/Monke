@@ -8,5 +8,8 @@ model/*.bin
 model/*.i8
 model/*.txt
 model/*.json
+*.db
+*.db-shm
+*.db-wal
 *.log
 .DS_Store

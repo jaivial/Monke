@@ -25,7 +25,18 @@ export default defineConfig({
   plugins: [
     react(),
     electron([
-      { entry: 'electron/main.ts', vite: { build: { outDir: 'dist-electron' } } },
+      {
+        entry: 'electron/main.ts',
+        vite: {
+          build: {
+            outDir: 'dist-electron',
+            // better-sqlite3 is a native module: it uses __filename at runtime to
+            // locate its .node binary. Bundling it breaks that ("__filename is not
+            // defined"). Externalize it so it's require()d from node_modules.
+            rollupOptions: { external: ['better-sqlite3'] },
+          },
+        },
+      },
       {
         entry: 'electron/preload.ts',
         onstart(o){ o.reload() },

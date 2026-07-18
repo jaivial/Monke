@@ -12,6 +12,8 @@
     "build:renderer": "vite build",
     "build:electron": "tsc -p tsconfig.node.json",
     "native": "node native/build.mjs",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "postinstall": "electron-rebuild -f -w better-sqlite3",
     "bootstrap": "node bootstrap/bootstrap.mjs",
     "check": "node bootstrap/bootstrap.mjs --check",
     "install:drive": "node scripts/install-to-drive.mjs",
@@ -27,6 +29,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.6.0",
     "@types/better-sqlite3": "^7.6.11",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
