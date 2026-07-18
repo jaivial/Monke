@@ -34,7 +34,13 @@
   typedef off_t off64;
 #endif
 
+/* Monotonic clock in seconds. POSIX clock_gettime isn't available under MSVC,
+ * so use QueryPerformanceCounter on Windows. */
+#if defined(_WIN32)
+static double now(){LARGE_INTEGER f,c;QueryPerformanceFrequency(&f);QueryPerformanceCounter(&c);return (double)c.QuadPart/(double)f.QuadPart;}
+#else
 static double now(){struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return t.tv_sec+t.tv_nsec*1e-9;}
+#endif
 static float sg(float x){return 1.f/(1.f+expf(-x));}
 static float silu(float x){return x*sg(x);}
 static void die(const char*s){fprintf(stderr,"[monke] fatal: %s\n",s);exit(1);}
@@ -44,8 +50,9 @@ typedef struct{float*n1w,*n1b,*proj,*o,*n2w,*n2b,*up,*down,*decay;}Blk;
 float*embed,*normw,*normb,*ra,*rb,*ca,*cb; Blk*blk;
 static float* rd(FILE*f,long n){float*p=malloc((size_t)n*4);if(!p||fread(p,4,n,f)!=(size_t)n)die("read weights");return p;}
 static void mv(const float*W,const float*x,float*y,int rows,int cols){
+  int r;
   #pragma omp parallel for schedule(static)
-  for(int r=0;r<rows;r++){const float*w=W+(size_t)r*cols;float s=0;for(int c=0;c<cols;c++)s+=w[c]*x[c];y[r]=s;}
+  for(r=0;r<rows;r++){const float*w=W+(size_t)r*cols;float s=0;for(int c=0;c<cols;c++)s+=w[c]*x[c];y[r]=s;}
 }
 static void lnorm(const float*x,const float*w,const float*b,float*y){
   float m=0,v=0;for(int i=0;i<D;i++)m+=x[i];m/=D;for(int i=0;i<D;i++){float q=x[i]-m;v+=q*q;}
