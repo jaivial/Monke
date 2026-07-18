@@ -1,6 +1,9 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Check, Loader2, CircleAlert } from 'lucide-react'
-import loadingVideo from '../../assets/loading-monkey.webm'
+// Animated PNG, not a <video>: a video element routes through Chromium's ffmpeg
+// and logs "Unsupported pixel format: -1" on every launch. An APNG is decoded by
+// the image pipeline instead — same looping animation, no ffmpeg, no log noise.
+import loadingAnim from '../../assets/loading-monkey-anim.png'
 
 type Step = { key: string; ok: boolean; detail?: string }
 const LABELS: Record<string, string> = {
@@ -11,7 +14,6 @@ export default function LoadingScreen({ onReady }: { onReady: () => void }) {
   const [steps, setSteps] = useState<Step[]>([])
   const [error, setError] = useState<string | null>(null)
   const [retrying, setRetrying] = useState(false)
-  const vid = useRef<HTMLVideoElement>(null)
 
   const boot = useCallback(() => {
     setError(null); setRetrying(true)
@@ -27,7 +29,7 @@ export default function LoadingScreen({ onReady }: { onReady: () => void }) {
 
   return (
     <div className="drag h-full w-full flex flex-col items-center justify-center bg-ink-900 fadein">
-      <video ref={vid} src={loadingVideo} autoPlay loop muted playsInline
+      <img src={loadingAnim} alt="Loading" draggable={false}
         className="w-[300px] h-[300px] object-contain pointer-events-none select-none" />
       <div className="mt-1 text-[22px] font-semibold tracking-tight">MONKE</div>
       <div className="mt-1 text-[11px] uppercase tracking-[0.22em] text-haze-400">Multiplier of Operations · Non Kernel · Effective</div>

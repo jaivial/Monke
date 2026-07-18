@@ -125,13 +125,24 @@ function ensureModel() {
 
 function launch() {
   head('Launch')
-  const pkgApp = {
-    linux: join(ROOT, 'release'), darwin: join(ROOT, 'release'), win: join(ROOT, 'release'),
-  }[PLAT]
   // source mode: run the dev app (works everywhere the deps are present)
   console.log(`${C.d}  starting MONKE...${C.x}`)
-  const child = spawn('npm', ['run', 'dev'], { cwd: ROOT, stdio: 'inherit', shell: true })
-  child.on('exit', (c) => process.exit(c ?? 0))
+  // Filter two harmless, unavoidable Chromium GPU log lines that some
+  // GPU/compositor combos (notably AMD Mesa under XWayland) emit repeatedly:
+  //   ERROR:gl_surface_presentation_helper.cc ... GetVSyncParametersIfAvailable
+  //   ERROR:ffmpeg_common.cc ... Unsupported pixel format
+  // They are cosmetic (the app renders fine). We can't suppress them via a GPU
+  // flag without risking a black screen on some hosts, so we drop just these
+  // exact lines from stderr and pass everything else through untouched.
+  const NOISE = /GetVSyncParametersIfAvailable|ffmpeg_common\.cc.*Unsupported pixel format/
+  const child = spawn('npm', ['run', 'dev'], { cwd: ROOT, stdio: ['inherit', 'inherit', 'pipe'], shell: true })
+  let buf = ''
+  child.stderr.on('data', (d) => {
+    buf += d.toString()
+    const lines = buf.split('\n'); buf = lines.pop() ?? ''
+    for (const line of lines) if (!NOISE.test(line)) process.stderr.write(line + '\n')
+  })
+  child.on('exit', (c) => { if (buf && !NOISE.test(buf)) process.stderr.write(buf); process.exit(c ?? 0) })
 }
 
 // ---- Node self-check (we are already running under node) ----
