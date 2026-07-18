@@ -12,12 +12,17 @@
 import { execSync } from 'node:child_process'
 import { mkdirSync, existsSync } from 'node:fs'
 import { platform, arch } from 'node:os'
-const dir = new URL('.', import.meta.url).pathname
-mkdirSync(dir + 'bin', { recursive: true })
-const src = dir + 'monke_runtime.c'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+// Use fileURLToPath, not URL.pathname: on Windows the latter yields a leading
+// "/D:/..." that mkdir/gcc mangle into "D:\D:\...". join() also normalizes
+// separators per-OS.
+const dir = dirname(fileURLToPath(import.meta.url))
+mkdirSync(join(dir, 'bin'), { recursive: true })
+const src = join(dir, 'monke_runtime.c')
 const p = platform()
 const a = arch()
-const out = dir + 'bin/monke_runtime' + (p === 'win32' ? '.exe' : '')
+const out = join(dir, 'bin', 'monke_runtime' + (p === 'win32' ? '.exe' : ''))
 
 function has(cmd) {
   try {

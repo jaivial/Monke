@@ -33,7 +33,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '20' }
+        with: { node-version: '22' }
+      # Put MSVC (cl) on PATH so build.mjs uses it on Windows; other OSes skip this.
+      - name: Set up MSVC
+        if: matrix.plat == 'win'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.arch == 'arm64' && 'arm64' || 'x64' }}
       - name: Build native runtime
         run: node native/build.mjs
       - name: Stage prebuilt
