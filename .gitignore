@@ -3,6 +3,7 @@ dist/
 dist-electron/
 release/
 native/bin/
+.runtime/
 model/*.bin
 model/*.i8
 *.log

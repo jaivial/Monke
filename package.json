@@ -12,6 +12,8 @@
     "build:renderer": "vite build",
     "build:electron": "tsc -p tsconfig.node.json",
     "native": "node native/build.mjs",
+    "bootstrap": "node bootstrap/bootstrap.mjs",
+    "check": "node bootstrap/bootstrap.mjs --check",
     "start": "electron .",
     "dist": "npm run build:electron && npm run build:renderer && electron-builder -mwl"
   },

@@ -26,18 +26,51 @@ minimal, Apple-inspired dark UI. Chat components by
 ```
 electron/     main process: window, IPC, SQLite (db.ts), tokenizer.ts,
               inference.ts (drives the native runtime), stats.ts, preload.ts
-native/       monke_runtime.c (cross-platform O_DIRECT inference) + build.mjs
+native/       monke_runtime.c + build.mjs + platform prebuilt binaries
+bootstrap/    host dependency checker/installer and cross-platform startup
+start.sh      Linux/macOS portable entry point
+start.command macOS Finder double-click entry point
+start.bat     Windows portable entry point
 src/          React UI: LoadingScreen, Sidebar, TitleBar, ChatView (assistant-ui),
               StatsPanel, hooks, lib/runtime.ts (assistant-ui <-> backend bridge)
 model/        controller.bin, mem.i8, scale.txt, tokenizer.json  (fetched)
 assets/       loading-monkey.mp4
 ```
 
-## Setup
+## Portable flash-drive startup — recommended
+
+Copy this repo to drive. Start one file:
+
+| Host | Start |
+|---|---|
+| Linux | `./start.sh` |
+| macOS | double-click `start.command` (or run `./start.sh`) |
+| Windows | double-click `start.bat` |
+
+The launcher detects **OS + CPU architecture**. It then:
+1. Uses installed Node.js, or downloads portable Node into `.runtime/` on drive.
+2. Selects `native/prebuilt/monke_runtime-<os>-<arch>`; **no compiler needed** when shipped binary matches host.
+3. Runs `npm install` only when `node_modules/` is missing.
+4. Downloads missing model files (~700 MB) from Hugging Face.
+5. Starts MONKE.
+
+First run needs internet. Later starts run offline from drive. Nothing installs globally.
+
+Check host readiness without changing anything:
+```bash
+./start.sh --check                 # Linux/macOS
+start.bat --check                  # Windows
+# or: npm run check
+```
+
+If a host lacks a matching prebuilt runtime, bootstrap asks before installing a C toolchain:
+`apt`/`dnf`/`pacman`/`zypper`/`apk` on Linux, Xcode CLT on macOS, `winget`/`choco` Visual Studio Build Tools on Windows. Pass `--yes` only for unattended setup.
+
+## Manual setup
 ```bash
 npm install
 node scripts/fetch-model.mjs     # downloads model files into ./model (~700 MB)
-node native/build.mjs            # compiles the native runtime for your OS
+node native/build.mjs            # only needed without matching prebuilt runtime
 npm run dev                      # dev (Vite + Electron)
 ```
 Build installers (per-OS):
@@ -47,18 +80,18 @@ npm run dist                     # -mwl (mac/win/linux) where toolchains exist
 ```
 
 ## Run from a flash drive
-1. Format the drive **ext4** (Linux/macOS) so `O_DIRECT` works; on Windows/exFAT
-   the runtime falls back to buffered reads (still from the drive).
-2. Put the packaged app + a `model/` folder (controller.bin, mem.i8, scale.txt,
-   tokenizer.json) on the drive.
-3. Point the app at the drive's model:
+1. Use fastest external SSD available. Linux ext4 allows `O_DIRECT`; macOS and
+   Windows use their native no-cache APIs. exFAT/FAT32 can fall back to buffered reads.
+2. Copy repo to drive. Run platform launcher above **once per OS/architecture**.
+   The launcher caches portable Node and `node_modules/` on drive.
+3. Keep `model/` beside app. Or set `MONKE_MODEL_DIR` to another model location:
    ```bash
-   MONKE_MODEL_DIR=/media/USB/model  ./MONKE           # Linux
+   MONKE_MODEL_DIR=/media/USB/model ./start.sh          # Linux
+   $env:MONKE_MODEL_DIR='E:\Monke\model'; .\start.bat  # Windows PowerShell
    ```
-   (or set it in the app's environment). `MONKE_DATA_DIR` controls where the
-   SQLite history is stored — default is alongside the model, so **history travels
-   with the drive**.
-4. Plug in → launch → the monkey loads everything → chat.
+4. `MONKE_DATA_DIR` controls SQLite history. Default is model folder, so history
+   travels with drive.
+5. Plug in → launch `start.sh` / `start.command` / `start.bat` → chat.
 
 **Speed depends on the drive** (workload is latency-bound, ~1,400 random 4 KiB
 reads/s): USB4/Thunderbolt NVMe ≈ 150–180 tok/s; commodity thumb drive is usable
