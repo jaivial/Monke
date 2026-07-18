@@ -5,9 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; media-src 'self' file:; img-src 'self' data: file:; style-src 'self' 'unsafe-inline'; script-src 'self'" />
     <title>MONKE</title>
+    <style>
+      /* Instant boot splash: painted the moment the document parses, before the
+         JS bundle downloads and React mounts (a ~2-5s gap, worse from a slow
+         flash drive). React replaces #root's contents when it's ready, so this
+         disappears automatically. Keeps the window from showing blank/dark. */
+      html, body { margin: 0; height: 100%; background: #0a0a0c; }
+      #boot-splash {
+        position: fixed; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 16px;
+        background: #0a0a0c; color: #e8e8ea;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        -webkit-app-region: drag;
+      }
+      #boot-splash .face { width: 84px; height: 84px; object-fit: contain; user-select: none; -webkit-user-drag: none; }
+      #boot-splash .ring {
+        width: 28px; height: 28px; border-radius: 50%;
+        border: 3px solid rgba(255,255,255,0.12);
+        border-top-color: rgba(255,255,255,0.75);
+        animation: boot-spin 0.9s linear infinite;
+      }
+      #boot-splash .wm { font-size: 15px; font-weight: 600; letter-spacing: 0.02em; color: #d8d8de; }
+      #boot-splash .sub { font-size: 10.5px; letter-spacing: 0.22em; text-transform: uppercase; color: #6f6f78; }
+      @keyframes boot-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { #boot-splash .ring { animation: none; } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="boot-splash">
+        <img class="face" alt="MONKE" src="data:image/png;base64,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" />
+        <div class="wm">MONKE</div>
+        <div class="ring"></div>
+        <div class="sub">Starting…</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
