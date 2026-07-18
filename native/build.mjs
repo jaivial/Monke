@@ -10,7 +10,7 @@
 // Power users optimizing for their own machine can override:
 //   MONKE_NATIVE_MARCH=native node native/build.mjs
 import { execSync } from 'node:child_process'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, existsSync } from 'node:fs'
 import { platform, arch } from 'node:os'
 const dir = new URL('.', import.meta.url).pathname
 mkdirSync(dir + 'bin', { recursive: true })
@@ -47,8 +47,18 @@ if (p === 'win32') {
   cmd = `clang -O3 -ffast-math ${marchFlag()} "${src}" -o "${out}" -lm`
 } else {
   // Linux (and other unixes): gcc/clang with OpenMP + portable baseline.
+  // Statically link libgomp when its archive is present, so the binary doesn't
+  // require libgomp.so.1 to be installed on the target (bare Ubuntu/Debian lack
+  // it). Fall back to dynamic -fopenmp if the static archive isn't found.
   const cc = has('gcc') ? 'gcc' : (has('clang') ? 'clang' : 'cc')
-  cmd = `${cc} -O3 ${marchFlag()} -fopenmp "${src}" -o "${out}" -lm`
+  let staticGomp = false
+  try {
+    // gcc prints an absolute path when the archive exists, else echoes the bare name.
+    const path = execSync(`${cc} -print-file-name=libgomp.a`, { shell: true }).toString().trim()
+    staticGomp = path.startsWith('/') && existsSync(path)
+  } catch {}
+  const omp = staticGomp ? '-fopenmp -static-libgcc -l:libgomp.a' : '-fopenmp'
+  cmd = `${cc} -O3 ${marchFlag()} ${omp} "${src}" -o "${out}" -lm`
 }
 console.log('[monke] building runtime:', cmd)
 execSync(cmd, { stdio: 'inherit', cwd: dir })

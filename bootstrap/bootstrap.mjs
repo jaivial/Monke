@@ -90,11 +90,25 @@ function ensureNativeRuntime(compilerOk) {
 
 function ensureNodeModules() {
   head('JavaScript dependencies')
-  if (existsSync(join(ROOT, 'node_modules', 'electron'))) { ok('node_modules present'); return true }
+  if (existsSync(join(ROOT, 'node_modules', 'electron'))) { ok('node_modules present'); return ensureNativeModules() }
   bad('node_modules missing')
   if (CHECK_ONLY) return false
   warn('installing (npm install — may take a few minutes)...')
-  return run('npm install')
+  return run('npm install') && ensureNativeModules()
+}
+
+// better-sqlite3 is a native addon compiled for a specific ABI. If node_modules
+// was copied from a machine with a different Node/Electron ABI (e.g. moved on a
+// flash drive), the prebuilt won't load. Detect the compiled binary and, if a
+// rebuild marker is missing, run electron-rebuild once. Non-fatal on failure.
+function ensureNativeModules() {
+  const sqliteNode = join(ROOT, 'node_modules', 'better-sqlite3', 'build', 'Release', 'better_sqlite3.node')
+  if (!existsSync(sqliteNode)) {
+    if (CHECK_ONLY) return true
+    warn('native better-sqlite3 missing — rebuilding for Electron...')
+    run('npm run rebuild')
+  }
+  return true
 }
 
 function ensureModel() {

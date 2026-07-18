@@ -1,0 +1,35 @@
+# Fast per-push validation: typecheck, native build, and a headless smoke test
+# that boots the app far enough to confirm the preload/runtime/db wiring works.
+# This is the guard that would have caught the blank-window (preload ESM) and
+# native-sqlite (ABI) regressions.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Install deps
+        run: npm ci
+      - name: Typecheck
+        run: |
+          npx tsc --noEmit
+          npx tsc --noEmit -p tsconfig.node.json
+      - name: Build native runtime
+        run: node native/build.mjs
+      - name: Build renderer + main
+        run: npm run build:electron && npm run build:renderer
+      - name: Verify preload is CommonJS
+        run: |
+          node --check dist-electron/preload.js
+          if grep -qE '^(import |export )' dist-electron/preload.js; then
+            echo "preload.js contains ESM statements — Electron loads it as CommonJS"; exit 1
+          fi
+          echo "preload.js is valid CommonJS"

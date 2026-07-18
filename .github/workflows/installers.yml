@@ -1,0 +1,72 @@
+# Builds packaged desktop installers on each OS with electron-builder and
+# publishes them as release assets. Native modules (better-sqlite3) are rebuilt
+# for Electron's ABI by the package.json postinstall on each runner, and the
+# native runtime is compiled per-OS by build.mjs — so every installer is fully
+# self-contained for its platform.
+#
+# The model (~700 MB) is NOT bundled; the app fetches it on first run. This
+# keeps installers small and avoids shipping model weights in CI artifacts.
+name: installers
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04,  plat: linux }
+          - { os: macos-14,      plat: mac }
+          - { os: windows-2022,  plat: win }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      # Linux: electron-builder needs some system libs for AppImage/deb.
+      - name: Linux build deps
+        if: matrix.plat == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools rpm
+
+      - name: Install deps (runs postinstall -> electron-rebuild)
+        run: npm ci
+
+      - name: Build native runtime
+        run: node native/build.mjs
+
+      - name: Build renderer + main
+        run: npm run build:electron && npm run build:renderer
+
+      - name: Package installer
+        run: npx electron-builder --${{ matrix.plat }} --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: monke-${{ matrix.plat }}
+          path: |
+            release/*.AppImage
+            release/*.deb
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+          if-no-files-found: warn
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: /tmp/artifacts, merge-multiple: true }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: /tmp/artifacts/*
+          fail_on_unmatched_files: false

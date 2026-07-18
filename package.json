@@ -13,7 +13,7 @@
     "build:electron": "tsc -p tsconfig.node.json",
     "native": "node native/build.mjs",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
-    "postinstall": "electron-rebuild -f -w better-sqlite3",
+    "postinstall": "electron-rebuild -f -w better-sqlite3 || echo \"[monke] electron-rebuild skipped (run 'npm run rebuild' once a C toolchain is available)\"",
     "bootstrap": "node bootstrap/bootstrap.mjs",
     "check": "node bootstrap/bootstrap.mjs --check",
     "install:drive": "node scripts/install-to-drive.mjs",

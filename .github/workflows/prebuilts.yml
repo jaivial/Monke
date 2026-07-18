@@ -1,0 +1,75 @@
+# Builds the native inference runtime for every OS/arch on real runners, then
+# commits the results into native/prebuilt/ so end users never need a compiler.
+#
+# Portability notes baked in here (validated against Ubuntu/Debian containers):
+#  - Linux x64 is built on ubuntu-22.04 (glibc 2.35) so the binary runs on that
+#    and every newer distro. Building on a newer distro raises the glibc floor
+#    and breaks older systems.
+#  - libgomp is statically linked on Linux (build.mjs) so bare Ubuntu/Debian
+#    without libgomp.so.1 can still run it.
+#  - -march=x86-64-v2 (build.mjs default) keeps the x64 binaries CPU-portable.
+name: prebuilts
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'native/monke_runtime.c'
+      - 'native/build.mjs'
+      - '.github/workflows/prebuilts.yml'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04,   plat: linux,  arch: x64,   out: monke_runtime-linux-x64 }
+          - { os: ubuntu-22.04-arm, plat: linux, arch: arm64, out: monke_runtime-linux-arm64 }
+          - { os: macos-13,       plat: darwin, arch: x64,   out: monke_runtime-darwin-x64 }
+          - { os: macos-14,       plat: darwin, arch: arm64, out: monke_runtime-darwin-arm64 }
+          - { os: windows-2022,   plat: win,    arch: x64,   out: monke_runtime-win-x64.exe }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Build native runtime
+        run: node native/build.mjs
+      - name: Stage prebuilt
+        shell: bash
+        run: |
+          mkdir -p native/prebuilt
+          if [ "${{ matrix.plat }}" = "win" ]; then
+            cp native/bin/monke_runtime.exe "native/prebuilt/${{ matrix.out }}"
+          else
+            cp native/bin/monke_runtime "native/prebuilt/${{ matrix.out }}"
+            chmod +x "native/prebuilt/${{ matrix.out }}"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.out }}
+          path: native/prebuilt/${{ matrix.out }}
+          if-no-files-found: error
+
+  commit:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: /tmp/prebuilts, merge-multiple: true }
+      - name: Copy prebuilts into tree
+        run: |
+          mkdir -p native/prebuilt
+          cp /tmp/prebuilts/monke_runtime-* native/prebuilt/
+          chmod +x native/prebuilt/monke_runtime-* 2>/dev/null || true
+          ls -la native/prebuilt/
+      - name: Commit
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add native/prebuilt/
+          git commit -m 'CI: refresh native prebuilts for all platforms' || echo 'no changes'
+          git push
