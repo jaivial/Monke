@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, accessSync, mkdirSync, constants as fsConstants } from 'node:fs'
 import { platform, cpus } from 'node:os'
 import { Store } from './db.js'
 import { Engine } from './inference.js'
@@ -15,7 +15,25 @@ const isDev = !app.isPackaged
 app.disableHardwareAcceleration()
 const RES = isDev ? join(__dirname, '..') : process.resourcesPath
 const MODEL_DIR = process.env.MONKE_MODEL_DIR || join(RES, 'model')
-const DATA_DIR = process.env.MONKE_DATA_DIR || MODEL_DIR
+// Where SQLite history lives. Priority:
+//  1. MONKE_DATA_DIR (explicit override)
+//  2. the model dir, IF it's writable (portable flash-drive case — history
+//     travels with the app, as documented)
+//  3. Electron's per-user userData dir (packaged installs, where the model dir
+//     is inside a read-only app bundle — writing there silently fails and the
+//     DB "doesn't persist")
+function resolveDataDir(): string {
+  if (process.env.MONKE_DATA_DIR) return process.env.MONKE_DATA_DIR
+  try {
+    accessSync(MODEL_DIR, fsConstants.W_OK)
+    return MODEL_DIR
+  } catch {
+    const ud = app.getPath('userData')
+    try { mkdirSync(ud, { recursive: true }) } catch {}
+    return ud
+  }
+}
+const DATA_DIR = resolveDataDir()
 const BIN = join(RES, 'native', 'bin', 'monke_runtime' + (platform() === 'win32' ? '.exe' : ''))
 // Human-readable name of the running model. Overridable for custom models via
 // MONKE_MODEL_NAME; a model.json {"name":...} in the model dir also wins.

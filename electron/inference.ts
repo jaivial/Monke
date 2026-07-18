@@ -68,6 +68,7 @@ export class Engine {
   }
 
   private async prime(chatId: string, contextTokens: number[]) {
+    this.currentChat = null   // invalid until priming fully completes
     await this.collect('RESET', l => l.startsWith('OK') || l.startsWith('PONG'))
     if (contextTokens.length) {
       // feed in chunks to avoid overlong lines
@@ -108,6 +109,13 @@ export class Engine {
       const [, tokS, io, rss] = eLine.split(/\s+/).map(Number)
       const text = this.tok.decode(genTokens)
       return { text, promptTokens, genTokens, metrics: { tokS: tokS || 0, ioBytesPerToken: io || 0, rssMb: rss || 0 } }
+    } catch (err) {
+      // A failed/partial turn leaves the recurrent state inconsistent for this
+      // chat. Invalidate currentChat so the next turn RESETs and re-primes from
+      // the persisted context rather than building on corrupt in-memory state
+      // (which would look like "answers mixing context").
+      this.currentChat = null
+      throw err
     } finally { this.busy = false }
   }
 

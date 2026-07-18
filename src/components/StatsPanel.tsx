@@ -1,4 +1,4 @@
-import { Cpu, MemoryStick, Gauge, HardDrive } from 'lucide-react'
+import { Cpu, MemoryStick, Gauge } from 'lucide-react'
 import { useStats } from '../hooks/useStats'
 
 function Meter({ pct }: { pct: number }) {
@@ -34,10 +34,6 @@ export default function StatsPanel({ tokS }: { tokS: number | null }) {
         <div className="tabular-nums text-haze-200">{gpu?.present ? '0 MB (CPU-only)' : 'none'}</div>
       </div>
       <Meter pct={0} />
-      <div className="mt-2 flex items-center justify-between text-[11px] text-haze-400">
-        <div className="flex items-center gap-1.5"><HardDrive size={12} /> table on SSD</div>
-        <div className="tabular-nums">2 rows/token · 8 KiB</div>
-      </div>
     </div>
   )
 }
