@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Check, Loader2, CircleAlert } from 'lucide-react'
 import loadingVideo from '../../assets/loading-monkey.webm'
 
@@ -10,18 +10,20 @@ const LABELS: Record<string, string> = {
 export default function LoadingScreen({ onReady }: { onReady: () => void }) {
   const [steps, setSteps] = useState<Step[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [retrying, setRetrying] = useState(false)
   const vid = useRef<HTMLVideoElement>(null)
 
-  useEffect(() => {
-    let done = false
+  const boot = useCallback(() => {
+    setError(null); setRetrying(true)
     // middleware: load everything before rendering the app
     window.monke.boot().then(res => {
-      setSteps(res.steps)
-      if (res.ok) { done = true; setTimeout(onReady, 900) }
+      setSteps(res.steps); setRetrying(false)
+      if (res.ok) setTimeout(onReady, 900)
       else setError(res.steps.filter(s => !s.ok).map(s => `${LABELS[s.key] || s.key}: ${s.detail || 'failed'}`).join('  ·  '))
-    }).catch(e => setError(String(e?.message || e)))
-    return () => { done = true }
+    }).catch(e => { setRetrying(false); setError(String(e?.message || e)) })
   }, [onReady])
+
+  useEffect(() => { boot() }, [boot])
 
   return (
     <div className="drag h-full w-full flex flex-col items-center justify-center bg-ink-900 fadein">
@@ -47,7 +49,16 @@ export default function LoadingScreen({ onReady }: { onReady: () => void }) {
       {error && (
         <div className="mt-6 max-w-[420px] text-center text-[12px] text-rose-300/90 leading-relaxed selectable">
           {error}
-          <div className="mt-2 text-haze-400">Place model files in the <code>model/</code> folder and run <code>node native/build.mjs</code>.</div>
+          <div className="mt-2 text-haze-400">
+            On a slow flash drive the first load can take a while — try again. Otherwise place model files in the <code>model/</code> folder and run <code>node native/build.mjs</code>.
+          </div>
+          <button
+            onClick={boot}
+            disabled={retrying}
+            className="no-drag mt-4 px-4 py-1.5 rounded-lg text-[12px] bg-white/10 hover:bg-white/15 disabled:opacity-50 text-haze-100 transition"
+          >
+            {retrying ? 'Retrying…' : 'Retry'}
+          </button>
         </div>
       )}
     </div>

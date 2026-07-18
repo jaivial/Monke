@@ -1,12 +1,24 @@
 // Cross-platform native runtime build. Run: node native/build.mjs
+//
+// Portability: by default we DO NOT use `-march=native`. A binary built with
+// `-march=native` embeds instructions specific to the build machine's CPU and
+// will crash with SIGILL on an older/different CPU — fatal for a prebuilt that
+// ships to other users or travels on a flash drive. Instead we target a broad
+// baseline:
+//   x64   -> x86-64-v2 (SSE4.2, ~2011+ Intel/AMD): universal and still fast.
+//   arm64 -> compiler default baseline (ARMv8-A).
+// Power users optimizing for their own machine can override:
+//   MONKE_NATIVE_MARCH=native node native/build.mjs
 import { execSync } from 'node:child_process'
-import { existsSync, mkdirSync } from 'node:fs'
-import { platform } from 'node:os'
+import { mkdirSync } from 'node:fs'
+import { platform, arch } from 'node:os'
 const dir = new URL('.', import.meta.url).pathname
 mkdirSync(dir + 'bin', { recursive: true })
 const src = dir + 'monke_runtime.c'
 const p = platform()
+const a = arch()
 const out = dir + 'bin/monke_runtime' + (p === 'win32' ? '.exe' : '')
+
 function has(cmd) {
   try {
     // MSVC `cl` has no --version; Windows PATH lookup is enough.
@@ -14,16 +26,29 @@ function has(cmd) {
     return true
   } catch { return false }
 }
+
+// Portable arch flag (gcc/clang). Override with MONKE_NATIVE_MARCH.
+function marchFlag() {
+  const override = process.env.MONKE_NATIVE_MARCH
+  if (override) return `-march=${override}`
+  if (a === 'x64') return '-march=x86-64-v2'   // SSE4.2 baseline, broadly compatible
+  return ''                                     // arm64 & others: safe compiler default
+}
+
 let cmd
 if (p === 'win32') {
-  // MSVC (cl) if available, else clang/gcc via MinGW
+  // MSVC (cl) if available, else clang/gcc via MinGW. MSVC targets a portable
+  // baseline by default (no /arch:AVX), so nothing extra needed there.
   if (has('cl')) cmd = `cl /O2 /openmp /Fe:"${out}" "${src}" psapi.lib`
-  else cmd = `gcc -O3 -fopenmp "${src}" -o "${out}" -lm -lpsapi`
+  else cmd = `gcc -O3 ${marchFlag()} -fopenmp "${src}" -o "${out}" -lm -lpsapi`
 } else if (p === 'darwin') {
-  // Apple clang has no OpenMP by default; build single-thread (still fast for one stream)
-  cmd = `clang -O3 -ffast-math "${src}" -o "${out}" -lm`
+  // Apple clang has no OpenMP by default; build single-thread (still fast for one
+  // stream). Apple-silicon/Intel macs both handle the default baseline.
+  cmd = `clang -O3 -ffast-math ${marchFlag()} "${src}" -o "${out}" -lm`
 } else {
-  cmd = `gcc -O3 -march=native -fopenmp "${src}" -o "${out}" -lm`
+  // Linux (and other unixes): gcc/clang with OpenMP + portable baseline.
+  const cc = has('gcc') ? 'gcc' : (has('clang') ? 'clang' : 'cc')
+  cmd = `${cc} -O3 ${marchFlag()} -fopenmp "${src}" -o "${out}" -lm`
 }
 console.log('[monke] building runtime:', cmd)
 execSync(cmd, { stdio: 'inherit', cwd: dir })

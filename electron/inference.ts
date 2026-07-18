@@ -33,16 +33,24 @@ export class Engine {
 
   async start(): Promise<void> {
     this.proc = spawn(this.binPath, [this.controller, this.mem, this.scale, String(this.threads)], { stdio: ['pipe', 'pipe', 'pipe'] })
-    this.proc.stderr.on('data', d => console.error('[runtime]', d.toString().trim()))
+    let stderrTail = ''
+    this.proc.stderr.on('data', d => { const s = d.toString(); stderrTail = (stderrTail + s).slice(-400); console.error('[runtime]', s.trim()) })
     this.rl = createInterface({ input: this.proc.stdout })
     this.rl.on('line', l => this.onLine?.(l))
+    // The runtime reads the ~300 MB controller into RAM at startup. On a slow
+    // flash drive that can take much longer than a fast SSD, so the timeout is
+    // generous and overridable (MONKE_ENGINE_TIMEOUT_MS). We also fail fast if
+    // the process itself exits, instead of waiting out the whole timeout.
+    const timeoutMs = Number(process.env.MONKE_ENGINE_TIMEOUT_MS) || 180000
     await new Promise<void>((resolve, reject) => {
-      const to = setTimeout(() => reject(new Error('runtime start timeout')), 30000)
+      const to = setTimeout(() => reject(new Error(`runtime start timeout after ${Math.round(timeoutMs / 1000)}s`)), timeoutMs)
+      const onExit = (code: number | null) => { clearTimeout(to); reject(new Error(`runtime exited (code ${code}) before ready: ${stderrTail.trim() || 'no output'}`)) }
+      this.proc.once('exit', onExit)
       this.onLine = (l) => {
         if (l.startsWith('READY')) {
           const [, V, D, L, ff, a, b] = l.split(/\s+/).map(Number)
           this.config = { V, D, L, ff, a, b }; this.ready = true
-          clearTimeout(to); this.onLine = null; resolve()
+          clearTimeout(to); this.proc.off('exit', onExit); this.onLine = null; resolve()
         }
       }
     })

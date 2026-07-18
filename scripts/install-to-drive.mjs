@@ -53,9 +53,73 @@ const dest = join(DRIVE, 'MONKE')
 await mkdir(DRIVE, { recursive: true })
 console.log(`Installing ${OS}-${CPU} MONKE bundle → ${dest}`)
 await rm(dest, { recursive: true, force: true })
+
+// dereference:true turns symlinks into real files. Flash drives are commonly
+// exFAT/FAT32 (the only formats natively read-write on Win+mac+Linux), and those
+// filesystems CANNOT store symlinks — copying them as links fails with EPERM.
+// Dereferencing is safe on every filesystem, so we always do it.
+const EXCLUDE = ['.git', 'dist', 'dist-electron', 'release', 'monke.db', '.vite']
 await cp(ROOT, dest, {
   recursive: true,
-  filter: (source) => !['.git', 'dist', 'dist-electron', 'release', 'monke.db'].some(x => source === join(ROOT, x) || source.startsWith(join(ROOT, x) + '/')),
+  dereference: true,
+  filter: (source) => !EXCLUDE.some(x => source === join(ROOT, x) || source.startsWith(join(ROOT, x) + '/')),
 })
+
+// node_modules/.bin/* are normally symlinks (e.g. .bin/vite -> ../vite/bin/vite.js).
+// Dereferencing above turned each into a *copy* of the target script, which then
+// resolves its own sibling files relative to .bin/ and breaks ("Cannot find
+// module .../dist/node/cli.js"). Regenerate every shim as a tiny wrapper that
+// execs the real target, so the bundle runs from an exFAT drive.
+async function fixBinShims(srcRoot, dstRoot) {
+  const { readdir, lstat, readlink, writeFile, chmod } = await import('node:fs/promises')
+  let fixed = 0
+  async function walk(rel) {
+    let entries
+    try { entries = await readdir(join(srcRoot, rel), { withFileTypes: true }) } catch { return }
+    for (const e of entries) {
+      const r = join(rel, e.name)
+      if (e.name === '.bin') {
+        for (const f of await readdir(join(srcRoot, r))) {
+          const s = join(srcRoot, r, f)
+          let st; try { st = await lstat(s) } catch { continue }
+          if (!st.isSymbolicLink()) continue          // .cmd/.ps1 real files: leave as-is
+          const target = await readlink(s)             // relative, e.g. ../vite/bin/vite.js
+          const wrapper =
+`#!/usr/bin/env node
+const { spawnSync } = require('node:child_process')
+const { resolve } = require('node:path')
+const target = resolve(__dirname, ${JSON.stringify(target)})
+const r = spawnSync(process.execPath, [target, ...process.argv.slice(2)], { stdio: 'inherit' })
+process.exit(r.status == null ? 1 : r.status)
+`
+          const d = join(dstRoot, r, f)
+          await writeFile(d, wrapper); await chmod(d, 0o755); fixed++
+        }
+      } else if (e.isDirectory()) {
+        await walk(r)                                  // recurse into nested node_modules
+      }
+    }
+  }
+  await walk('node_modules')
+  return fixed
+}
+const shims = await fixBinShims(ROOT, dest)
+if (shims) console.log(`Rewrote ${shims} node_modules/.bin shims for symlink-less filesystems`)
+
+// Sanity check: warn if the copy dropped files (e.g. drive full mid-copy).
+const countFiles = async (root) => {
+  const { readdir } = await import('node:fs/promises')
+  let n = 0
+  const walk = async (d) => {
+    let es; try { es = await readdir(d, { withFileTypes: true }) } catch { return }
+    for (const e of es) { const p = join(d, e.name); if (e.isDirectory()) await walk(p); else n++ }
+  }
+  await walk(join(root, 'node_modules'))
+  return n
+}
+const srcN = await countFiles(ROOT), dstN = await countFiles(dest)
+if (dstN < srcN) console.warn(`WARNING: node_modules copied ${dstN}/${srcN} files — drive may be full or copy interrupted.`)
+else console.log(`node_modules: ${dstN} files copied`)
+
 console.log('Done. Eject drive safely. Start:')
 console.log(OS === 'win' ? `  ${join(dest, 'start.bat')}` : `  ${join(dest, OS === 'darwin' ? 'start.command' : 'start.sh')}`)
