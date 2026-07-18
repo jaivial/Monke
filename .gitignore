@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-electron/
+release/
+native/bin/
+model/*.bin
+model/*.i8
+*.log
+.DS_Store
