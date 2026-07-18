@@ -1,5 +1,6 @@
 import { AssistantRuntimeProvider, ThreadPrimitive, MessagePrimitive, ComposerPrimitive } from '@assistant-ui/react'
 import { ArrowUp } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useMonkeChat } from '../lib/runtime'
 
 function UserMessage() {
@@ -17,20 +18,27 @@ function AssistantMessage() {
   )
 }
 
-function Composer() {
+function Composer({ modelName }: { modelName: string }) {
   return (
     <div className="composer-wrap">
       <ComposerPrimitive.Root className="composer no-drag">
         <ComposerPrimitive.Input autoFocus placeholder="Message MONKE…" rows={1} />
         <ComposerPrimitive.Send className="send-btn" aria-label="Send"><ArrowUp size={17} /></ComposerPrimitive.Send>
       </ComposerPrimitive.Root>
-      <div className="text-center text-[10.5px] text-haze-400 mt-2">Runs on CPU + SSD · disk-routed 2 rows/token · no GPU required</div>
+      <div className="flex items-center justify-center gap-1.5 text-[10.5px] text-haze-400 mt-2">
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
+        <span className="font-medium text-haze-300">{modelName || 'disk-routed-chat'}</span>
+        <span className="text-haze-500">·</span>
+        <span>CPU + SSD · 2 rows/token · no GPU</span>
+      </div>
     </div>
   )
 }
 
 export default function ChatView({ chatId, onMetrics }: { chatId: string; onMetrics: (m: { tokS: number }) => void }) {
   const { runtime } = useMonkeChat(chatId, onMetrics)
+  const [modelName, setModelName] = useState('')
+  useEffect(() => { window.monke.modelName().then(setModelName).catch(() => {}) }, [])
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <ThreadPrimitive.Root className="aui-thread-root">
@@ -43,7 +51,7 @@ export default function ChatView({ chatId, onMetrics }: { chatId: string; onMetr
           </ThreadPrimitive.Empty>
           <ThreadPrimitive.Messages components={{ UserMessage, AssistantMessage }} />
         </ThreadPrimitive.Viewport>
-        <Composer />
+        <Composer modelName={modelName} />
       </ThreadPrimitive.Root>
     </AssistantRuntimeProvider>
   )

@@ -1,11 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 export type BootStep = { key: string; ok: boolean; detail?: string }
-export type BootResult = { ok: boolean; steps: BootStep[]; model: string }
+export type BootResult = { ok: boolean; steps: BootStep[]; model: string; modelName: string }
 export type GenMetrics = { tokS: number; ioBytesPerToken: number; rssMb: number }
 
 const api = {
   boot: (): Promise<BootResult> => ipcRenderer.invoke('boot:init'),
+  modelName: (): Promise<string> => ipcRenderer.invoke('model:name'),
   chats: {
     list: () => ipcRenderer.invoke('chats:list'),
     create: () => ipcRenderer.invoke('chats:create'),

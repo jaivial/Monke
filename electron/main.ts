@@ -17,6 +17,16 @@ const RES = isDev ? join(__dirname, '..') : process.resourcesPath
 const MODEL_DIR = process.env.MONKE_MODEL_DIR || join(RES, 'model')
 const DATA_DIR = process.env.MONKE_DATA_DIR || MODEL_DIR
 const BIN = join(RES, 'native', 'bin', 'monke_runtime' + (platform() === 'win32' ? '.exe' : ''))
+// Human-readable name of the running model. Overridable for custom models via
+// MONKE_MODEL_NAME; a model.json {"name":...} in the model dir also wins.
+function modelName(): string {
+  if (process.env.MONKE_MODEL_NAME) return process.env.MONKE_MODEL_NAME
+  try {
+    const meta = join(MODEL_DIR, 'model.json')
+    if (existsSync(meta)) { const n = JSON.parse(readFileSync(meta, 'utf-8'))?.name; if (n) return String(n) }
+  } catch {}
+  return 'disk-routed-chat-0.5b'
+}
 
 let win: BrowserWindow
 let store: Store
@@ -55,8 +65,10 @@ ipcMain.handle('boot:init', async () => {
       steps.push({ key: 'engine', ok: true, detail: `d=${engine.config?.D} L=${engine.config?.L} threads=${threads}` })
     } catch (e: any) { steps.push({ key: 'engine', ok: false, detail: e.message }) }
   } else steps.push({ key: 'engine', ok: false, detail: 'blocked by missing files' })
-  return { ok: steps.every(s => s.ok), steps, model: MODEL_DIR }
+  return { ok: steps.every(s => s.ok), steps, model: MODEL_DIR, modelName: modelName() }
 })
+
+ipcMain.handle('model:name', () => modelName())
 
 // ---- chats ----
 ipcMain.handle('chats:list', () => store.listChats())

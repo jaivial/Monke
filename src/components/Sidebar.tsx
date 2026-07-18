@@ -1,11 +1,13 @@
 import { PanelLeftClose, SquarePen, MessageSquare, Trash2 } from 'lucide-react'
 import type { Chat } from '../types'
+import StatsPanel from './StatsPanel'
 
 export default function Sidebar({
-  chats, activeId, onSelect, onNew, onDelete, onCollapse,
+  chats, activeId, onSelect, onNew, onDelete, onCollapse, tokS,
 }: {
   chats: Chat[]; activeId: string | null
   onSelect: (id: string) => void; onNew: () => void; onDelete: (id: string) => void; onCollapse: () => void
+  tokS: number | null
 }) {
   return (
     <div className="panel h-full w-[248px] flex flex-col border-r hairline">
@@ -40,7 +42,9 @@ export default function Sidebar({
           </div>
         ))}
       </div>
-      <div className="px-3 py-2 text-[10px] text-haze-400 border-t hairline">CPU + SSD · disk-routed 0.5B</div>
+      <div className="border-t hairline">
+        <StatsPanel tokS={tokS} />
+      </div>
     </div>
   )
 }

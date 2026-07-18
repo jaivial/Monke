@@ -12,23 +12,28 @@ function Meter({ pct }: { pct: number }) {
 export default function StatsPanel({ tokS }: { tokS: number | null }) {
   const s = useStats()
   const gpu = s?.gpu
+  // MONKE runs inference on CPU only, so the model uses 0 GPU memory. We report
+  // what the MODEL consumes (its process RSS) out of total host RAM, not raw
+  // system usage.
+  const modelGb = s ? (s.procRssMb / 1024).toFixed(2) : '—'
+  const totalGb = s ? (s.ramTotalMb / 1024).toFixed(0) : '—'
   return (
-    <div className="panel rounded-xl2 px-3.5 py-3 w-[230px] text-[12px] fadein">
+    <div className="px-3 py-3 text-[12px]">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-haze-300"><Gauge size={13} /> Throughput</div>
         <div className="font-semibold tabular-nums">{tokS ? `${tokS.toFixed(0)} tok/s` : '—'}</div>
       </div>
       <div className="my-2.5 h-px hairline border-t" />
       <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-2 text-haze-300"><MemoryStick size={13} /> Host RAM</div>
-        <div className="tabular-nums text-haze-200">{s ? `${(s.ramUsedMb/1024).toFixed(1)} / ${(s.ramTotalMb/1024).toFixed(0)} GB` : '—'}</div>
+        <div className="flex items-center gap-2 text-haze-300"><MemoryStick size={13} /> Model RAM</div>
+        <div className="tabular-nums text-haze-200">{s ? `${modelGb} / ${totalGb} GB` : '—'}</div>
       </div>
-      <Meter pct={s?.ramPct ?? 0} />
+      <Meter pct={s?.procRamPct ?? 0} />
       <div className="mt-2.5 flex items-center justify-between mb-1">
-        <div className="flex items-center gap-2 text-haze-300"><Cpu size={13} /> GPU</div>
-        <div className="tabular-nums text-haze-200">{gpu?.present ? `${gpu.utilPct}%` : 'none'}</div>
+        <div className="flex items-center gap-2 text-haze-300"><Cpu size={13} /> Model GPU</div>
+        <div className="tabular-nums text-haze-200">{gpu?.present ? '0 MB (CPU-only)' : 'none'}</div>
       </div>
-      <Meter pct={gpu?.present ? gpu.utilPct : 0} />
+      <Meter pct={0} />
       <div className="mt-2 flex items-center justify-between text-[11px] text-haze-400">
         <div className="flex items-center gap-1.5"><HardDrive size={12} /> table on SSD</div>
         <div className="tabular-nums">2 rows/token · 8 KiB</div>

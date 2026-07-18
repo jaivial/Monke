@@ -1,10 +1,12 @@
-// Cross-platform system stats: host RAM + GPU (nvidia-smi if present, else none).
+// Cross-platform system stats: model-process RAM + host total, GPU (nvidia-smi
+// if present, else none). The panel highlights what the MODEL uses, not just
+// raw system totals.
 import { totalmem, freemem } from 'node:os'
 import { execFile } from 'node:child_process'
 
 export type Stats = {
   ramUsedMb: number; ramTotalMb: number; ramPct: number
-  procRssMb: number
+  procRssMb: number; procRamPct: number
   gpu: { present: boolean; name: string; utilPct: number; memUsedMb: number; memTotalMb: number }
 }
 
@@ -32,6 +34,8 @@ export async function sample(procRssMb: number): Promise<Stats> {
   if (!gpuChecked || gpuAvailable) { gpu = await nvidia(); gpuChecked = true }
   return {
     ramUsedMb: Math.round(used), ramTotalMb: Math.round(total), ramPct: Math.round((used / total) * 100),
-    procRssMb: Math.round(procRssMb), gpu,
+    procRssMb: Math.round(procRssMb),
+    procRamPct: total > 0 ? Math.round((procRssMb / total) * 100) : 0,
+    gpu,
   }
 }

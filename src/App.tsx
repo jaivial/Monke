@@ -3,7 +3,6 @@ import LoadingScreen from './components/LoadingScreen'
 import Sidebar from './components/Sidebar'
 import TitleBar from './components/TitleBar'
 import ChatView from './components/ChatView'
-import StatsPanel from './components/StatsPanel'
 import { useChats } from './hooks/useChats'
 
 export default function App() {
@@ -35,6 +34,7 @@ export default function App() {
           onNew={async () => { const c = await newChat(); await refresh(); setActiveId(c.id) }}
           onDelete={remove}
           onCollapse={() => setCollapsed(true)}
+          tokS={tokS}
         />
       )}
       <div className="flex-1 flex flex-col min-w-0">
@@ -45,7 +45,6 @@ export default function App() {
           title={title}
         />
         <div className="flex-1 relative min-h-0">
-          <div className="absolute top-3 right-4 z-10 no-drag"><StatsPanel tokS={tokS} /></div>
           {activeId ? <ChatView key={activeId} chatId={activeId} onMetrics={onMetrics} /> : null}
         </div>
       </div>
