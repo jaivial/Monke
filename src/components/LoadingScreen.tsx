@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, Loader2, CircleAlert } from 'lucide-react'
-import loadingVideo from '../../assets/loading-monkey.mp4'
+import loadingVideo from '../../assets/loading-monkey.webm'
 
 type Step = { key: string; ok: boolean; detail?: string }
 const LABELS: Record<string, string> = {

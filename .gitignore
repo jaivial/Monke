@@ -6,5 +6,7 @@ native/bin/
 .runtime/
 model/*.bin
 model/*.i8
+model/*.txt
+model/*.json
 *.log
 .DS_Store

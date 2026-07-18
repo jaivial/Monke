@@ -9,6 +9,10 @@ import { sample } from './stats.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const isDev = !app.isPackaged
+// MONKE runs inference on CPU only; the UI needs no GPU. Disabling hardware
+// acceleration removes GL/vsync driver noise (GetVSyncParametersIfAvailable
+// warnings) on Linux hosts without changing anything visible.
+app.disableHardwareAcceleration()
 const RES = isDev ? join(__dirname, '..') : process.resourcesPath
 const MODEL_DIR = process.env.MONKE_MODEL_DIR || join(RES, 'model')
 const DATA_DIR = process.env.MONKE_DATA_DIR || MODEL_DIR
