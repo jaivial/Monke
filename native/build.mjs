@@ -7,7 +7,13 @@ mkdirSync(dir + 'bin', { recursive: true })
 const src = dir + 'monke_runtime.c'
 const p = platform()
 const out = dir + 'bin/monke_runtime' + (p === 'win32' ? '.exe' : '')
-function has(cmd){ try { execSync(`${cmd} --version`, {stdio:'ignore'}); return true } catch { return false } }
+function has(cmd) {
+  try {
+    // MSVC `cl` has no --version; Windows PATH lookup is enough.
+    execSync(process.platform === 'win32' ? `where ${cmd}` : `command -v ${cmd}`, { stdio: 'ignore', shell: true })
+    return true
+  } catch { return false }
+}
 let cmd
 if (p === 'win32') {
   // MSVC (cl) if available, else clang/gcc via MinGW
