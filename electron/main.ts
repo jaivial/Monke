@@ -9,10 +9,12 @@ import { sample } from './stats.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const isDev = !app.isPackaged
-// MONKE runs inference on CPU only; the UI needs no GPU. Disabling hardware
-// acceleration removes GL/vsync driver noise (GetVSyncParametersIfAvailable
-// warnings) on Linux hosts without changing anything visible.
-app.disableHardwareAcceleration()
+// NOTE: do NOT call app.disableHardwareAcceleration() here. It silences harmless
+// GL/vsync log lines, but on some GPUs/compositors (e.g. AMD Mesa on Wayland) it
+// forces software rendering that paints a permanently BLACK window while the DOM
+// is fully live. Keeping hardware acceleration on is the safe default. Users who
+// truly need it off can set MONKE_DISABLE_GPU=1.
+if (process.env.MONKE_DISABLE_GPU === '1') app.disableHardwareAcceleration()
 const RES = isDev ? join(__dirname, '..') : process.resourcesPath
 const MODEL_DIR = process.env.MONKE_MODEL_DIR || join(RES, 'model')
 // Where SQLite history lives. Priority:
