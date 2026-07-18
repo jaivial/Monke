@@ -82,16 +82,32 @@ npm run dist                     # -mwl (mac/win/linux) where toolchains exist
 ## Run from a flash drive
 1. Use fastest external SSD available. Linux ext4 allows `O_DIRECT`; macOS and
    Windows use their native no-cache APIs. exFAT/FAT32 can fall back to buffered reads.
-2. Copy repo to drive. Run platform launcher above **once per OS/architecture**.
-   The launcher caches portable Node and `node_modules/` on drive.
-3. Keep `model/` beside app. Or set `MONKE_MODEL_DIR` to another model location:
+2. **Prepare on your desktop once, then install the finished bundle onto drive.**
+   On desktop (with internet), run:
+   ```bash
+   git clone https://github.com/jaivial/Monke.git
+   cd Monke
+   npm install
+   node scripts/fetch-model.mjs
+   node native/build.mjs
+   npm run install:drive -- /media/MONKE       # Linux/macOS example
+   npm run install:drive -- E:\                # Windows example
+   ```
+   Installer copies source, `node_modules`, model (~700 MB), native runtime, and
+   portable Node onto `<drive>/MONKE`. Target PC needs **no Node install, no npm
+   install, no compiler, and no internet** when it has same OS + CPU architecture
+   as desktop. Re-run installer to refresh drive after updates.
+3. Plug drive into target PC. Start `<drive>/MONKE/start.sh`, `start.command`, or
+   `start.bat`. The pre-start check verifies every file before MONKE opens.
+4. Different OS/architecture? Run its launcher while internet is available once.
+   It auto-selects/builds that host's runtime and installs that host's npm modules.
+5. Keep `model/` beside app. Or set `MONKE_MODEL_DIR` to another model location:
    ```bash
    MONKE_MODEL_DIR=/media/USB/model ./start.sh          # Linux
    $env:MONKE_MODEL_DIR='E:\Monke\model'; .\start.bat  # Windows PowerShell
    ```
-4. `MONKE_DATA_DIR` controls SQLite history. Default is model folder, so history
+6. `MONKE_DATA_DIR` controls SQLite history. Default is model folder, so history
    travels with drive.
-5. Plug in → launch `start.sh` / `start.command` / `start.bat` → chat.
 
 **Speed depends on the drive** (workload is latency-bound, ~1,400 random 4 KiB
 reads/s): USB4/Thunderbolt NVMe ≈ 150–180 tok/s; commodity thumb drive is usable
