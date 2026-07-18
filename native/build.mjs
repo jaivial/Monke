@@ -48,8 +48,15 @@ if (p === 'win32') {
   else cmd = `gcc -O3 ${marchFlag()} -fopenmp "${src}" -o "${out}" -lm -lpsapi`
 } else if (p === 'darwin') {
   // Apple clang has no OpenMP by default; build single-thread (still fast for one
-  // stream). Apple-silicon/Intel macs both handle the default baseline.
-  cmd = `clang -O3 -ffast-math ${marchFlag()} "${src}" -o "${out}" -lm`
+  // stream). MONKE_MAC_ARCH lets a runner cross-build the other slice, e.g. build
+  // the x86_64 binary on Apple Silicon (`-arch x86_64`) — used in CI because
+  // GitHub's Intel-mac runners are scarce. -march is arch-specific, so only pass
+  // the x86-64-v2 baseline when actually targeting x86_64.
+  const macArch = process.env.MONKE_MAC_ARCH   // 'x86_64' | 'arm64' | undefined (native)
+  const archFlag = macArch ? `-arch ${macArch}` : ''
+  const targetIsX64 = macArch ? macArch === 'x86_64' : a === 'x64'
+  const march = targetIsX64 ? (process.env.MONKE_NATIVE_MARCH ? `-march=${process.env.MONKE_NATIVE_MARCH}` : '-march=x86-64-v2') : ''
+  cmd = `clang -O3 -ffast-math ${archFlag} ${march} "${src}" -o "${out}" -lm`
 } else {
   // Linux (and other unixes): gcc/clang with OpenMP + portable baseline.
   // Statically link libgomp when its archive is present, so the binary doesn't

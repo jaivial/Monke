@@ -26,7 +26,10 @@ jobs:
         include:
           - { os: ubuntu-22.04,   plat: linux,  arch: x64,   out: monke_runtime-linux-x64 }
           - { os: ubuntu-22.04-arm, plat: linux, arch: arm64, out: monke_runtime-linux-arm64 }
-          - { os: macos-13,       plat: darwin, arch: x64,   out: monke_runtime-darwin-x64 }
+          # Cross-build the Intel-mac slice on Apple Silicon (macArch: x86_64):
+          # GitHub's Intel macos-13 runners are scarce and can queue indefinitely,
+          # while clang on macos-14 cross-compiles x86_64 fine.
+          - { os: macos-14,       plat: darwin, arch: x64,   out: monke_runtime-darwin-x64,   macArch: x86_64 }
           - { os: macos-14,       plat: darwin, arch: arm64, out: monke_runtime-darwin-arm64 }
           - { os: windows-2022,   plat: win,    arch: x64,   out: monke_runtime-win-x64.exe }
     runs-on: ${{ matrix.os }}
@@ -42,6 +45,8 @@ jobs:
           arch: ${{ matrix.arch == 'arm64' && 'arm64' || 'x64' }}
       - name: Build native runtime
         run: node native/build.mjs
+        env:
+          MONKE_MAC_ARCH: ${{ matrix.macArch }}
       - name: Stage prebuilt
         shell: bash
         run: |
