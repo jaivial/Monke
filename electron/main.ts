@@ -80,6 +80,12 @@ ipcMain.handle('boot:init', async () => {
     try {
       const scale = readFileSync(join(MODEL_DIR, 'scale.txt'), 'utf-8').trim()
       const threads = Math.min(16, Math.max(2, cpus().length))
+      // boot:init can fire more than once (React StrictMode double-mount, HMR,
+      // renderer reload). Each Engine spawns a native runtime process; without
+      // stopping the previous one they pile up as orphans and a half-finished
+      // turn on an old engine can leave the app looking "busy". Tear the old
+      // one down before replacing it.
+      engine?.stop()
       engine = new Engine(BIN, join(MODEL_DIR, 'controller.bin'), join(MODEL_DIR, 'mem.i8'), join(MODEL_DIR, 'tokenizer.json'), scale, threads)
       await engine.start()
       steps.push({ key: 'engine', ok: true, detail: `d=${engine.config?.D} L=${engine.config?.L} threads=${threads}` })

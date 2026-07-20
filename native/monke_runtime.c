@@ -80,7 +80,23 @@ static double rss_mb(){PROCESS_MEMORY_COUNTERS c; GetProcessMemoryInfo(GetCurren
 static int mfd;
 static void open_table(const char*p){
  #if defined(__linux__)
-  mfd=open(p,O_RDONLY|O_DIRECT); if(mfd<0) mfd=open(p,O_RDONLY);
+  /* O_DIRECT bypasses the page cache so the disk-routed table doesn't evict the
+   * controller from RAM. But some filesystems (notably FAT/exFAT/vFAT on flash
+   * drives) accept open(O_DIRECT) yet reject every subsequent pread with EINVAL
+   * (or crash on the unaligned/uninitialised page). open() succeeding is NOT
+   * proof O_DIRECT works, so probe it with one aligned read and fall back to a
+   * plain buffered open when the probe fails. */
+  mfd=open(p,O_RDONLY|O_DIRECT);
+  if(mfd>=0){
+    void*probe=NULL;
+    if(posix_memalign(&probe,4096,4096)==0){
+      ssize_t got=pread(mfd,probe,4096,0);
+      free(probe);
+      if(got!=4096){ close(mfd); mfd=open(p,O_RDONLY); }
+    } else { close(mfd); mfd=open(p,O_RDONLY); }
+  } else {
+    mfd=open(p,O_RDONLY);
+  }
  #else
   mfd=open(p,O_RDONLY);
   #if defined(__APPLE__)

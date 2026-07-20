@@ -135,7 +135,16 @@ function launch() {
   // flag without risking a black screen on some hosts, so we drop just these
   // exact lines from stderr and pass everything else through untouched.
   const NOISE = /GetVSyncParametersIfAvailable|ffmpeg_common\.cc.*Unsupported pixel format/
-  const child = spawn('npm', ['run', 'dev'], { cwd: ROOT, stdio: ['inherit', 'inherit', 'pipe'], shell: true })
+  // The drive-local portable npm is unusable here: on FAT filesystems the
+  // symlinks in its bin/ and internal dependency tree are dereferenced into
+  // plain file copies, which breaks Node's module-type/scope resolution
+  // ("require is not defined in ES module scope") and drops files like
+  // walk-up-path. `npm run dev` merely runs the local `vite` binary, so invoke
+  // vite directly through the app's FAT-safe .bin/vite shim and skip npm.
+  const viteBin = join(ROOT, 'node_modules', '.bin', 'vite')
+  const child = existsSync(viteBin)
+    ? spawn(process.execPath, [viteBin], { cwd: ROOT, stdio: ['inherit', 'inherit', 'pipe'] })
+    : spawn('npm', ['run', 'dev'], { cwd: ROOT, stdio: ['inherit', 'inherit', 'pipe'], shell: true })
   let buf = ''
   child.stderr.on('data', (d) => {
     buf += d.toString()
