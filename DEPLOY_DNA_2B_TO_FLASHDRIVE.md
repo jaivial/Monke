@@ -32,11 +32,22 @@ stdin/stdout protocol - is identical, so the Electron engine drives both the sam
 You need three files. Either **download** them from the Hugging Face repo or **export**
 them from a checkpoint.
 
-### Option A - download (recommended)
-From `https://huggingface.co/jaivial/dna-diskchat-2b-v1`:
-- `ctrl_dna.bin`  (~321 MB, fp32 controller)      -> rename to `controller.bin`
-- `codons.u8`     (~512 MB, codon memory table)
-- `tokenizer.json` (32k ByteLevel-BPE)
+### Option A - download prebuilt artifacts (recommended)
+They are published under `c-runtime/` in
+`https://huggingface.co/jaivial/dna-diskchat-2b-v1`, already in the exact layout the
+runtime expects:
+```bash
+huggingface-cli download jaivial/dna-diskchat-2b-v1 \
+  c-runtime/controller.bin c-runtime/codons.u8 c-runtime/tokenizer.json \
+  c-runtime/monke_runtime_dna.c --local-dir dna-dl
+mkdir -p <DRIVE>/model-dna2b
+cp dna-dl/c-runtime/{controller.bin,codons.u8,tokenizer.json} <DRIVE>/model-dna2b/
+```
+- `c-runtime/controller.bin`       (~322 MB) - **chat (SFT)** controller
+- `c-runtime/controller_base.bin`  (~322 MB) - base LM controller (optional; text continuation)
+- `c-runtime/codons.u8`            (~512 MB) - codon memory table (shared by both controllers)
+- `c-runtime/tokenizer.json`       - 32k ByteLevel-BPE
+- `c-runtime/monke_runtime_dna.c`  - the runtime source (same file as `native/monke_runtime_dna.c`)
 
 ### Option B - export from a checkpoint (`scripts/export_c_dna.py` in the HF repo)
 ```bash
